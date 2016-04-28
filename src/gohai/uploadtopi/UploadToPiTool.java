@@ -23,7 +23,7 @@
  * @version  ##tool.prettyVersion##
  */
 
-package template.tool;
+package gohai.uploadtopi;
 
 import processing.app.Base;
 import processing.app.tools.Tool;
@@ -33,7 +33,7 @@ import processing.app.ui.Editor;
 // when creating a tool, the name of the main class which implements Tool must
 // be the same as the value defined for project.name in your build.properties
 
-public class HelloTool implements Tool {
+public class UploadToPiTool implements Tool {
   Base base;
 
 
