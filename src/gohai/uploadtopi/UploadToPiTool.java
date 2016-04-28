@@ -26,8 +26,11 @@
 package gohai.uploadtopi;
 
 import processing.app.Base;
+import processing.app.Mode;
+import processing.app.Sketch;
 import processing.app.tools.Tool;
 import processing.app.ui.Editor;
+import java.lang.reflect.*;
 
 
 public class UploadToPiTool implements Tool {
@@ -46,5 +49,25 @@ public class UploadToPiTool implements Tool {
 
   public void run() {
     Editor editor = base.getActiveEditor();
+
+    // XXX: needs save
+    exportSketch();
+  }
+
+
+  public boolean exportSketch() {
+    Editor editor = base.getActiveEditor();
+
+    try {
+      Mode mode = editor.getMode();
+      Sketch sketch = editor.getSketch();
+
+      Method javaModeMethod = mode.getClass().getMethod("handleExportApplication", sketch.getClass());
+      javaModeMethod.invoke(mode, sketch);
+      return true;
+    } catch (Exception e) {
+      System.out.println(e);
+      return false;
+    }
   }
 }
