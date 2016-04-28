@@ -30,30 +30,21 @@ import processing.app.tools.Tool;
 import processing.app.ui.Editor;
 
 
-// when creating a tool, the name of the main class which implements Tool must
-// be the same as the value defined for project.name in your build.properties
-
 public class UploadToPiTool implements Tool {
   Base base;
 
 
   public String getMenuTitle() {
-    return "##tool.name##";
+    return "Upload to Pi";
   }
 
 
   public void init(Base base) {
-    // Store a reference to the Processing application itself
     this.base = base;
   }
 
 
   public void run() {
-    // Get the currently active Editor to run the Tool on it
     Editor editor = base.getActiveEditor();
-
-    // Fill in author.name, author.url, tool.prettyVersion and
-    // project.prettyName in build.properties for them to be auto-replaced here.
-    System.out.println("Hello Tool. ##tool.name## ##tool.prettyVersion## by ##author##");
   }
 }
