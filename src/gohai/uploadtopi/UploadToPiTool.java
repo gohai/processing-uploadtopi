@@ -27,6 +27,7 @@ package gohai.uploadtopi;
 
 import processing.app.Base;
 import processing.app.Mode;
+import processing.app.Preferences;
 import processing.app.Sketch;
 import processing.app.tools.Tool;
 import processing.app.ui.Editor;
@@ -45,6 +46,10 @@ public class UploadToPiTool implements Tool {
   Base base;
   SSHClient ssh;
 
+  String hostname;
+  String username;
+  String password;
+
 
   public String getMenuTitle() {
     return "Upload to Pi";
@@ -53,6 +58,8 @@ public class UploadToPiTool implements Tool {
 
   public void init(Base base) {
     this.base = base;
+    loadPreferences();
+    savePreferences();
   }
 
 
@@ -65,8 +72,7 @@ public class UploadToPiTool implements Tool {
     exportSketch();
 
     System.out.println("Connecting...");
-    // XXX: config
-    ssh = connect("raspberrypi.local", "pi", "raspberry");
+    ssh = connect(hostname, username, password);
     if (ssh == null) {
       return;
     }
@@ -113,6 +119,22 @@ public class UploadToPiTool implements Tool {
   }
 
 
+  private void loadPreferences() {
+    hostname = Preferences.get("gohai.uploadtopi.hostname");
+    if (hostname == null) {
+      hostname = "raspberrypi.local";
+    }
+    username = Preferences.get("gohai.uploadtopi.username");
+    if (username == null) {
+      username = "pi";
+    }
+    password = Preferences.get("gohai.uploadtopi.password");
+    if (password == null) {
+      password = "raspberry";
+    }
+  }
+
+
   public void removeSketch(String dest, String sketchName) {
     try {
       Session session = ssh.startSession();
@@ -142,6 +164,13 @@ public class UploadToPiTool implements Tool {
       System.out.println(e);
       return -1;
     }
+  }
+
+
+  public void savePreferences() {
+    Preferences.set("gohai.uploadtopi.hostname", hostname);
+    Preferences.set("gohai.uploadtopi.username", username);
+    Preferences.set("gohai.uploadtopi.password", password);
   }
 
 
