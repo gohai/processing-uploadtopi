@@ -35,11 +35,13 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.*;
 import java.util.concurrent.TimeUnit;
+import net.schmizz.sshj.common.DisconnectReason;
 import net.schmizz.sshj.common.IOUtils;
 import net.schmizz.sshj.connection.channel.direct.Session;
 import net.schmizz.sshj.connection.channel.direct.Session.Command;
 import net.schmizz.sshj.sftp.SFTPClient;
 import net.schmizz.sshj.SSHClient;
+import net.schmizz.sshj.transport.TransportException;
 
 
 public class UploadToPiTool implements Tool {
@@ -91,8 +93,24 @@ public class UploadToPiTool implements Tool {
     SSHClient ssh = new SSHClient();
     try {
       ssh.loadKnownHosts();
-      // XXX: handle HOST_KEY_NOT_VERIFYABLE
-      ssh.connect(host);
+
+      try {
+        ssh.connect(host);
+      } catch (TransportException e) {
+        if (e.getDisconnectReason() == DisconnectReason.HOST_KEY_NOT_VERIFIABLE) {
+          String msg = e.getMessage();
+          String[] split = msg.split("`");
+          String fingerprint = split[3];
+          // try again
+          // this doesn't update the known_hosts file
+          ssh = new SSHClient();
+          ssh.addHostKeyVerifier(fingerprint);
+          ssh.connect(host);
+        } else {
+          throw e;
+        }
+      }
+
       ssh.authPassword(username, password);
       return ssh;
     } catch (IOException e) {
