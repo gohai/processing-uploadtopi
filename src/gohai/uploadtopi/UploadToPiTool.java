@@ -73,19 +73,20 @@ public class UploadToPiTool implements Tool {
     // XXX: needs save
     exportSketch();
 
-    System.out.println("Connecting...");
+    System.out.print("Connecting to " + hostname + " .. ");
     ssh = connect(hostname, username, password);
     if (ssh == null) {
       return;
     }
+    System.out.println("done");
 
-    System.out.print("Uploading... ");
+    System.out.print("Uploading " + editor.getSketch().getName() + " .. ");
     removeSketch("/tmp", editor.getSketch().getName());
     uploadSketch(sketchPath + File.separator + "application.linux-armv6hf", "/tmp", editor.getSketch().getName());
-    System.out.println("Done.");
+    System.out.println("done");
 
     int retVal = runRemoteSketch("/tmp", editor.getSketch().getName());
-    System.out.println("Sketch ended.");
+    //System.out.println("Sketch ended.");
   }
 
 
