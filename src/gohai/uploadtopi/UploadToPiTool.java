@@ -74,9 +74,18 @@ public class UploadToPiTool implements Tool {
     // "~" didn't work (no such file)
     String dest = (persistent) ? "." : "/tmp";
 
-    // XXX: put this in an extra thread?
-    // XXX: needs save
+    // this doesn't trigger the "Save as" dialog for unnamed sketches, but instead saves
+    // them in the temporary location that is also used for compiling
+    try {
+      editor.getSketch().save();
+    } catch (IOException e) {
+      System.err.println("Cannot save sketch");
+      return;
+    }
+
     exportSketch();
+
+    // XXX: put this in an extra thread?
 
     System.out.print("Connecting to " + hostname + " .. ");
     ssh = connect(hostname, username, password);
