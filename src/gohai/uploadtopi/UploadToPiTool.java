@@ -130,6 +130,10 @@ public class UploadToPiTool implements Tool {
       stopSketches();
       removeSketch(dest, sketchName);
       uploadSketch(sketchPath + File.separator + "application.linux-armv6hf", dest, sketchName);
+      removeAutostarts();
+      if (autostart) {
+        addAutostart(dest, sketchName);
+      }
     } catch (Exception e) {
       editor.statusError("Cannot upload " + sketchName);
       System.err.println(e);
@@ -155,6 +159,19 @@ public class UploadToPiTool implements Tool {
     }
 
     disconnect();
+  }
+
+
+  public void addAutostart(String dest, String sketchName) throws IOException {
+    Session session = ssh.startSession();
+    // XXX: sync since users might be inclined to power-cyle the Pi the hard way?
+    Command cmd = session.exec("echo \"@" + dest + "/" + sketchName + "/" + sketchName + " --uploadtopi-managed\" >> .config/lxsession/LXDE-pi/autostart");
+    cmd.join(3, TimeUnit.SECONDS);
+    if (cmd.getExitStatus() != 0) {
+      // not critical
+      System.err.println("Error modifying .config/lxsession/LXDE-pi/autostart");
+    }
+    session.close();
   }
 
 
@@ -233,6 +250,18 @@ public class UploadToPiTool implements Tool {
     } else {
       autostart = Boolean.parseBoolean(tmp);
     }
+  }
+
+
+  public void removeAutostarts() throws IOException {
+    Session session = ssh.startSession();
+    Command cmd = session.exec("sed -i \"/uploadtopi-managed/d\" .config/lxsession/LXDE-pi/autostart");
+    cmd.join(3, TimeUnit.SECONDS);
+    if (cmd.getExitStatus() != 0) {
+      // not critical
+      System.err.println("Error modifying .config/lxsession/LXDE-pi/autostart");
+    }
+    session.close();
   }
 
 
