@@ -71,6 +71,8 @@ public class UploadToPiTool implements Tool {
   }
 
 
+  // XXX: https://github.com/hierynomus/sshj/blob/master/examples/src/main/java/net/schmizz/sshj/examples/RudimentaryPTY.java
+  // XXX: https://github.com/hierynomus/sshj/blob/master/examples/src/main/java/net/schmizz/sshj/examples/KeepAlive.java
   // XXX: implement method to retrieve Pi's serial number
   // XXX: implement method to retrieve Pi's network IPs & MAC addresses
   // XXX: implement method to maximize root partition
@@ -158,6 +160,8 @@ public class UploadToPiTool implements Tool {
   public static SSHClient connect(String host, String username, String password) throws IOException, TransportException, UserAuthException {
     SSHClient ssh = new SSHClient();
     ssh.loadKnownHosts();
+    // XXX: needs
+    //ssh.useCompression();
 
     try {
       ssh.connect(host);
@@ -167,9 +171,10 @@ public class UploadToPiTool implements Tool {
         String[] split = msg.split("`");
         String fingerprint = split[3];
         // try again
-        // this doesn't update the known_hosts file
         ssh = new SSHClient();
+        // this doesn't update the known_hosts file
         ssh.addHostKeyVerifier(fingerprint);
+        //ssh.useCompression();
         ssh.connect(host);
       } else {
         throw e;
