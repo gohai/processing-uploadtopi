@@ -51,6 +51,8 @@ public class UploadToPiTool implements Tool {
   String hostname;
   String username;
   String password;
+  boolean persistent;
+  boolean autostart;
 
 
   public String getMenuTitle() {
@@ -68,6 +70,7 @@ public class UploadToPiTool implements Tool {
   public void run() {
     Editor editor = base.getActiveEditor();
     String sketchPath = editor.getSketch().getFolder().getAbsolutePath();
+    String dest = (persistent) ? "/home/" + username : "/tmp";
 
     // XXX: put this in an extra thread?
     // XXX: needs save
@@ -81,11 +84,11 @@ public class UploadToPiTool implements Tool {
     System.out.println("done");
 
     System.out.print("Uploading " + editor.getSketch().getName() + " .. ");
-    removeSketch("/tmp", editor.getSketch().getName());
-    uploadSketch(sketchPath + File.separator + "application.linux-armv6hf", "/tmp", editor.getSketch().getName());
+    removeSketch(dest, editor.getSketch().getName());
+    uploadSketch(sketchPath + File.separator + "application.linux-armv6hf", dest, editor.getSketch().getName());
     System.out.println("done");
 
-    int retVal = runRemoteSketch("/tmp", editor.getSketch().getName());
+    int retVal = runRemoteSketch(dest, editor.getSketch().getName());
     //System.out.println("Sketch ended.");
   }
 
@@ -151,6 +154,18 @@ public class UploadToPiTool implements Tool {
     if (password == null) {
       password = "raspberry";
     }
+    String tmp = Preferences.get("gohai.uploadtopi.persistent");
+    if (tmp == null) {
+      persistent = true;
+    } else {
+      persistent = Boolean.parseBoolean(tmp);
+    }
+    tmp = Preferences.get("gohai.uploadtopi.autostart");
+    if (tmp == null) {
+      autostart = true;
+    } else {
+      autostart = Boolean.parseBoolean(tmp);
+    }
   }
 
 
@@ -190,6 +205,8 @@ public class UploadToPiTool implements Tool {
     Preferences.set("gohai.uploadtopi.hostname", hostname);
     Preferences.set("gohai.uploadtopi.username", username);
     Preferences.set("gohai.uploadtopi.password", password);
+    Preferences.setBoolean("gohai.uploadtopi.persistent", persistent);
+    Preferences.setBoolean("gohai.uploadtopi.autostart", autostart);
   }
 
 
