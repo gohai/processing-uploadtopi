@@ -160,7 +160,7 @@ public class UploadToPiTool implements Tool {
   public static SSHClient connect(String host, String username, String password) throws IOException, TransportException, UserAuthException {
     SSHClient ssh = new SSHClient();
     ssh.loadKnownHosts();
-    // XXX: needs
+    // XXX: needs JZlib
     //ssh.useCompression();
 
     try {
@@ -238,8 +238,9 @@ public class UploadToPiTool implements Tool {
   public void removeSketch(String dest, String sketchName) throws IOException {
     Session session = ssh.startSession();
     // session only handles a single exec call
-    // XXX: explain command (pkill currently fails if no processs is running)
-    Command cmd = session.exec("pkill -P $(pgrep " + sketchName + ") && rm -Rf " + dest + "/" + sketchName);
+    // this tries to kill the current sketch, if running, and remove its directory
+    // the latter is necessary as the sftp put w/ rename doesn't work if the target (directory) exists
+    Command cmd = session.exec("pkill -P $(pgrep " + sketchName + ") >/dev/null 2>&1 && rm -Rf " + dest + "/" + sketchName);
     cmd.join(3, TimeUnit.SECONDS);
     if (cmd.getExitStatus() != 0) {
       throw new RuntimeException("removeSketch returned unexpected exit code " + cmd.getExitStatus());
@@ -262,9 +263,11 @@ public class UploadToPiTool implements Tool {
       }
     }
     // print output to console
-    // XXX: receive stderr
+    // XXX: ordering is wrong, needs to be done in real-time
     System.out.println(IOUtils.readFully(cmd.getInputStream()).toString());
-    // XXX: try closing session
+    System.err.println(IOUtils.readFully(cmd.getErrorStream()).toString());
+    session.close();
+    // I frankly don't know how the sketch can still be running at this point, but it is :)
     return cmd.getExitStatus();
   }
 
