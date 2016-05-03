@@ -130,6 +130,7 @@ public class UploadToPiTool implements Tool {
     } catch (Exception e) {
       editor.statusError("Cannot upload " + sketchName);
       System.err.println(e);
+      disconnect();
       return;
     }
 
@@ -149,6 +150,8 @@ public class UploadToPiTool implements Tool {
       editor.statusError("Error running " + sketchName);
       System.err.println(e);
     }
+
+    disconnect();
   }
 
 
@@ -175,6 +178,17 @@ public class UploadToPiTool implements Tool {
 
     ssh.authPassword(username, password);
     return ssh;
+  }
+
+
+  public void disconnect() {
+    if (ssh != null) {
+      try {
+        ssh.disconnect();
+      } catch (Exception e) {
+      }
+      ssh = null;
+    }
   }
 
 
@@ -245,6 +259,7 @@ public class UploadToPiTool implements Tool {
     // print output to console
     // XXX: receive stderr
     System.out.println(IOUtils.readFully(cmd.getInputStream()).toString());
+    // XXX: try closing session
     return cmd.getExitStatus();
   }
 
