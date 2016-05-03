@@ -127,6 +127,7 @@ public class UploadToPiTool implements Tool {
 
     try {
       editor.statusNotice("Uploading " + sketchName + " ...");
+      stopSketches();
       removeSketch(dest, sketchName);
       uploadSketch(sketchPath + File.separator + "application.linux-armv6hf", dest, sketchName);
     } catch (Exception e) {
@@ -236,14 +237,13 @@ public class UploadToPiTool implements Tool {
 
 
   public void removeSketch(String dest, String sketchName) throws IOException {
+    // try to remove the current sketch's directory
+    // necessary as sftp put w/ rename doesn't work if the target (directory) exists
     Session session = ssh.startSession();
-    // session only handles a single exec call
-    // this tries to kill the current sketch, if running, and remove its directory
-    // the latter is necessary as the sftp put w/ rename doesn't work if the target (directory) exists
-    Command cmd = session.exec("pkill -P $(pgrep " + sketchName + ") >/dev/null 2>&1 && rm -Rf " + dest + "/" + sketchName);
-    cmd.join(3, TimeUnit.SECONDS);
+    Command cmd = session.exec("rm -Rf " + dest + "/" + sketchName);
+    cmd.join(10, TimeUnit.SECONDS);
     if (cmd.getExitStatus() != 0) {
-      throw new RuntimeException("removeSketch returned unexpected exit code " + cmd.getExitStatus());
+      throw new RuntimeException("Error removing directory " + dest + "/"  + sketchName);
     }
     session.close();
   }
@@ -251,7 +251,8 @@ public class UploadToPiTool implements Tool {
 
   public int runRemoteSketch(String dest, String sketchName) throws IOException {
     Session session = ssh.startSession();
-    Command cmd = session.exec("DISPLAY=:0 " + dest + "/" + sketchName + "/" + sketchName);
+    // --uploadtopi-managed is a dummy argument we use in removeSketch() to indentify ours
+    Command cmd = session.exec("DISPLAY=:0 " + dest + "/" + sketchName + "/" + sketchName + " --uploadtopi-managed");
     try {
       cmd.join(10, TimeUnit.SECONDS);
     } catch (ConnectionException e) {
@@ -278,6 +279,16 @@ public class UploadToPiTool implements Tool {
     Preferences.set("gohai.uploadtopi.password", password);
     Preferences.setBoolean("gohai.uploadtopi.persistent", persistent);
     Preferences.setBoolean("gohai.uploadtopi.autostart", autostart);
+  }
+
+
+  public void stopSketches() throws IOException {
+    Session session = ssh.startSession();
+    // kill any Processing sketch we started either directly or through autostart
+    Command cmd = session.exec("pgrep -f \"uploadtopi-managed\" | xargs kill -9");
+    cmd.join(3, TimeUnit.SECONDS);
+    // cmd.getExitStatus() throws a NPE here, not sure why - ignore for now
+    session.close();
   }
 
 
