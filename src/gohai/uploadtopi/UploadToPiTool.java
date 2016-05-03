@@ -70,7 +70,9 @@ public class UploadToPiTool implements Tool {
   public void run() {
     Editor editor = base.getActiveEditor();
     String sketchPath = editor.getSketch().getFolder().getAbsolutePath();
-    String dest = (persistent) ? "/home/" + username : "/tmp";
+    // this assumes the working directory is home at the beginning of a ssh/sftp session
+    // "~" didn't work (no such file)
+    String dest = (persistent) ? "." : "/tmp";
 
     // XXX: put this in an extra thread?
     // XXX: needs save
