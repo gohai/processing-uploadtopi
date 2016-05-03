@@ -34,14 +34,18 @@ import processing.app.ui.Editor;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.*;
+import java.net.ConnectException;
+import java.net.UnknownHostException;
 import java.util.concurrent.TimeUnit;
 import net.schmizz.sshj.common.DisconnectReason;
 import net.schmizz.sshj.common.IOUtils;
 import net.schmizz.sshj.connection.channel.direct.Session;
 import net.schmizz.sshj.connection.channel.direct.Session.Command;
+import net.schmizz.sshj.connection.ConnectionException;
 import net.schmizz.sshj.sftp.SFTPClient;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.transport.TransportException;
+import net.schmizz.sshj.userauth.UserAuthException;
 
 
 public class UploadToPiTool implements Tool {
@@ -67,9 +71,16 @@ public class UploadToPiTool implements Tool {
   }
 
 
+  // XXX: implement method to retrieve Pi's serial number
+  // XXX: implement method to retrieve Pi's network IPs & MAC addresses
+  // XXX: implement method to maximize root partition
+
+
   public void run() {
     Editor editor = base.getActiveEditor();
+    String sketchName = editor.getSketch().getName();
     String sketchPath = editor.getSketch().getFolder().getAbsolutePath();
+
     // this assumes the working directory is home at the beginning of a ssh/sftp session
     // "~" didn't work (no such file)
     String dest = (persistent) ? "." : "/tmp";
@@ -78,77 +89,102 @@ public class UploadToPiTool implements Tool {
     // them in the temporary location that is also used for compiling
     try {
       editor.getSketch().save();
-    } catch (IOException e) {
-      System.err.println("Cannot save sketch");
-      return;
-    }
-
-    exportSketch();
-
-    // XXX: put this in an extra thread?
-
-    System.out.print("Connecting to " + hostname + " .. ");
-    ssh = connect(hostname, username, password);
-    if (ssh == null) {
-      return;
-    }
-    System.out.println("done");
-
-    System.out.print("Uploading " + editor.getSketch().getName() + " .. ");
-    removeSketch(dest, editor.getSketch().getName());
-    uploadSketch(sketchPath + File.separator + "application.linux-armv6hf", dest, editor.getSketch().getName());
-    System.out.println("done");
-
-    int retVal = runRemoteSketch(dest, editor.getSketch().getName());
-    //System.out.println("Sketch ended.");
-  }
-
-
-  public static SSHClient connect(String host, String username, String password) {
-    SSHClient ssh = new SSHClient();
-    try {
-      ssh.loadKnownHosts();
-
-      try {
-        ssh.connect(host);
-      } catch (TransportException e) {
-        if (e.getDisconnectReason() == DisconnectReason.HOST_KEY_NOT_VERIFIABLE) {
-          String msg = e.getMessage();
-          String[] split = msg.split("`");
-          String fingerprint = split[3];
-          // try again
-          // this doesn't update the known_hosts file
-          ssh = new SSHClient();
-          ssh.addHostKeyVerifier(fingerprint);
-          ssh.connect(host);
-        } else {
-          throw e;
-        }
-      }
-
-      ssh.authPassword(username, password);
-      return ssh;
-    } catch (IOException e) {
-      System.out.println(e);
-      return null;
-    }
-  }
-
-
-  public boolean exportSketch() {
-    Editor editor = base.getActiveEditor();
-
-    try {
-      Mode mode = editor.getMode();
-      Sketch sketch = editor.getSketch();
-
-      Method javaModeMethod = mode.getClass().getMethod("handleExportApplication", sketch.getClass());
-      javaModeMethod.invoke(mode, sketch);
-      return true;
     } catch (Exception e) {
-      System.out.println(e);
-      return false;
+      editor.statusError("Cannot save sketch");
+      return;
     }
+
+    try {
+      exportSketch();
+    } catch (Exception e) {
+      editor.statusError("Cannot export sketch");
+      System.err.println(e);
+      return;
+    }
+
+    // XXX: put this in an extra thread
+    // XXX: output while sketch is running
+    // XXX: handle stop button
+
+    try {
+      editor.statusNotice("Connecting to " + hostname + " ...");
+      ssh = connect(hostname, username, password);
+    } catch (Exception e) {
+      editor.statusError("Cannot connect to " + hostname);
+      if (e instanceof UnknownHostException) {
+        System.err.println("Unknown host");
+      } else if (e instanceof UserAuthException) {
+        System.err.println("Wrong username or password");
+      } else if (e instanceof ConnectException && e.getMessage().equals("Connection refused")) {
+        System.err.println("Unable to connect. No SSH server running?");
+      } else {
+        System.err.println(e);
+      }
+      return;
+    }
+
+    try {
+      editor.statusNotice("Uploading " + sketchName + " ...");
+      removeSketch(dest, sketchName);
+      uploadSketch(sketchPath + File.separator + "application.linux-armv6hf", dest, sketchName);
+    } catch (Exception e) {
+      editor.statusError("Cannot upload " + sketchName);
+      System.err.println(e);
+      return;
+    }
+
+    editor.statusNotice("Running " + sketchName + " on your Raspberry Pi");
+    try {
+      int retVal = runRemoteSketch(dest, sketchName);
+      if (retVal == Integer.MAX_VALUE) {
+        // sketch is still running
+      } else if (retVal == 0) {
+        // clean exit
+        editor.statusNotice("Sketch " + sketchName + " ended");
+      } else {
+        // error?
+        editor.statusError("Sketch + " + sketchName + " ended with exit code " + retVal);
+      }
+    } catch (Exception e) {
+      editor.statusError("Error running " + sketchName);
+      System.err.println(e);
+    }
+  }
+
+
+  public static SSHClient connect(String host, String username, String password) throws IOException, TransportException, UserAuthException {
+    SSHClient ssh = new SSHClient();
+    ssh.loadKnownHosts();
+
+    try {
+      ssh.connect(host);
+    } catch (TransportException e) {
+      if (e.getDisconnectReason() == DisconnectReason.HOST_KEY_NOT_VERIFIABLE) {
+        String msg = e.getMessage();
+        String[] split = msg.split("`");
+        String fingerprint = split[3];
+        // try again
+        // this doesn't update the known_hosts file
+        ssh = new SSHClient();
+        ssh.addHostKeyVerifier(fingerprint);
+        ssh.connect(host);
+      } else {
+        throw e;
+      }
+    }
+
+    ssh.authPassword(username, password);
+    return ssh;
+  }
+
+
+  public void exportSketch() throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+    Editor editor = base.getActiveEditor();
+    Mode mode = editor.getMode();
+    Sketch sketch = editor.getSketch();
+
+    Method javaModeMethod = mode.getClass().getMethod("handleExportApplication", sketch.getClass());
+    javaModeMethod.invoke(mode, sketch);
   }
 
 
@@ -180,35 +216,36 @@ public class UploadToPiTool implements Tool {
   }
 
 
-  public void removeSketch(String dest, String sketchName) {
-    try {
-      Session session = ssh.startSession();
-      // only one exec() per session
-      Command cmd = session.exec("pkill -P $(pgrep " + sketchName + ") && rm -Rf " + dest + "/" + sketchName);
-      cmd.join(3, TimeUnit.SECONDS);
-      if (cmd.getExitStatus() != 0) {
-        // XXX: unexpected return value
-      }
-      session.close();
-    } catch (IOException e) {
-      System.out.println(e);
+  public void removeSketch(String dest, String sketchName) throws IOException {
+    Session session = ssh.startSession();
+    // session only handles a single exec call
+    // XXX: explain command (pkill currently fails if no processs is running)
+    Command cmd = session.exec("pkill -P $(pgrep " + sketchName + ") && rm -Rf " + dest + "/" + sketchName);
+    cmd.join(3, TimeUnit.SECONDS);
+    if (cmd.getExitStatus() != 0) {
+      throw new RuntimeException("removeSketch returned unexpected exit code " + cmd.getExitStatus());
     }
+    session.close();
   }
 
 
-  public int runRemoteSketch(String dest, String sketchName) {
+  public int runRemoteSketch(String dest, String sketchName) throws IOException {
+    Session session = ssh.startSession();
+    Command cmd = session.exec("DISPLAY=:0 " + dest + "/" + sketchName + "/" + sketchName);
     try {
-      Session session = ssh.startSession();
-      Command cmd = session.exec("DISPLAY=:0 " + dest + "/" + sketchName + "/" + sketchName);
-      // XXX: output while sketch is running
-      // XXX: handle stop button
       cmd.join(10, TimeUnit.SECONDS);
-      System.out.println(IOUtils.readFully(cmd.getInputStream()).toString());
-      return cmd.getExitStatus();
-    } catch (IOException e) {
-      System.out.println(e);
-      return -1;
+    } catch (ConnectionException e) {
+      if (e.getMessage().equals("Timeout expired")) {
+        // sketch is still running, which is expected for now
+        return Integer.MAX_VALUE;
+      } else {
+        throw e;
+      }
     }
+    // print output to console
+    // XXX: receive stderr
+    System.out.println(IOUtils.readFully(cmd.getInputStream()).toString());
+    return cmd.getExitStatus();
   }
 
 
@@ -221,15 +258,11 @@ public class UploadToPiTool implements Tool {
   }
 
 
-  public void uploadSketch(String localDir, String dest, String sketchName) {
-    try {
-      SFTPClient sftp = ssh.newSFTPClient();
-      // XXX: only upload changed files?
-      sftp.put(localDir, dest + "/" + sketchName);
-      sftp.chmod(dest + "/" + sketchName + "/" + sketchName, 0755);
-      sftp.close();
-    } catch (IOException e) {
-      System.out.println(e);
-    }
+  public void uploadSketch(String localDir, String dest, String sketchName) throws IOException {
+    SFTPClient sftp = ssh.newSFTPClient();
+    // XXX: only upload changed files?
+    sftp.put(localDir, dest + "/" + sketchName);
+    sftp.chmod(dest + "/" + sketchName + "/" + sketchName, 0755);
+    sftp.close();
   }
 }
