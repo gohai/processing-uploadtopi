@@ -121,7 +121,7 @@ public class UploadToPiTool implements Tool {
       return;
     }
 
-    // XXX: handle stop button
+    // XXX: there doesn't seem to be a way to handle the use pressing the stop button
 
     t = new Thread(new Runnable() {
       public void run() {
