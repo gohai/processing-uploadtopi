@@ -51,6 +51,7 @@ import net.schmizz.sshj.userauth.UserAuthException;
 public class UploadToPiTool implements Tool {
   Base base;
   SSHClient ssh;
+  static Thread t;
 
   String hostname;
   String username;
@@ -79,13 +80,25 @@ public class UploadToPiTool implements Tool {
 
 
   public void run() {
-    Editor editor = base.getActiveEditor();
-    String sketchName = editor.getSketch().getName();
-    String sketchPath = editor.getSketch().getFolder().getAbsolutePath();
+    final Editor editor = base.getActiveEditor();
+    final String sketchName = editor.getSketch().getName();
+    final String sketchPath = editor.getSketch().getFolder().getAbsolutePath();
 
     // this assumes the working directory is home at the beginning of a ssh/sftp session
     // "~" didn't work (no such file)
-    String dest = (persistent) ? "." : "/tmp";
+    final String dest = (persistent) ? "." : "/tmp";
+
+    // already running?
+    if (t != null) {
+      t.interrupt();
+      try {
+        t.join();
+      } catch (InterruptedException e) {
+        System.err.println("Error joining thread in releaseInterrupt: " + e.getMessage());
+      }
+      t = null;
+      // XXX: disconnect?
+    }
 
     // XXX: clear console
 
@@ -106,61 +119,68 @@ public class UploadToPiTool implements Tool {
       return;
     }
 
-    // XXX: put this in an extra thread
     // XXX: output while sketch is running
     // XXX: handle stop button
 
-    try {
-      editor.statusNotice("Connecting to " + hostname + " ...");
-      ssh = connect(hostname, username, password);
-    } catch (Exception e) {
-      editor.statusError("Cannot connect to " + hostname);
-      if (e instanceof UnknownHostException) {
-        System.err.println("Unknown host");
-      } else if (e instanceof UserAuthException) {
-        System.err.println("Wrong username or password");
-      } else if (e instanceof ConnectException && e.getMessage().equals("Connection refused")) {
-        System.err.println("Unable to connect. No SSH server running?");
-      } else {
-        System.err.println(e);
-      }
-      return;
-    }
+    t = new Thread(new Runnable() {
+      public void run() {
 
-    try {
-      editor.statusNotice("Uploading " + sketchName + " ...");
-      stopSketches();
-      removeSketch(dest, sketchName);
-      uploadSketch(sketchPath + File.separator + "application.linux-armv6hf", dest, sketchName);
-      removeAutostarts();
-      if (autostart) {
-        addAutostart(dest, sketchName);
-      }
-    } catch (Exception e) {
-      editor.statusError("Cannot upload " + sketchName);
-      System.err.println(e);
-      disconnect();
-      return;
-    }
+        try {
+          editor.statusNotice("Connecting to " + hostname + " ...");
+          ssh = connect(hostname, username, password);
+        } catch (Exception e) {
+          editor.statusError("Cannot connect to " + hostname);
+          if (e instanceof UnknownHostException) {
+            System.err.println("Unknown host");
+          } else if (e instanceof UserAuthException) {
+            System.err.println("Wrong username or password");
+          } else if (e instanceof ConnectException && e.getMessage().equals("Connection refused")) {
+            System.err.println("Unable to connect. No SSH server running?");
+          } else {
+            System.err.println(e);
+          }
+          return;
+        }
 
-    editor.statusNotice("Running " + sketchName + " on your Raspberry Pi");
-    try {
-      int retVal = runRemoteSketch(dest, sketchName);
-      if (retVal == Integer.MAX_VALUE) {
-        // sketch is still running
-      } else if (retVal == 0) {
-        // clean exit
-        editor.statusNotice("Sketch " + sketchName + " ended");
-      } else {
-        // error?
-        editor.statusError("Sketch + " + sketchName + " ended with exit code " + retVal);
-      }
-    } catch (Exception e) {
-      editor.statusError("Error running " + sketchName);
-      System.err.println(e);
-    }
+        try {
+          editor.statusNotice("Uploading " + sketchName + " ...");
+          stopSketches();
+          removeSketch(dest, sketchName);
+          uploadSketch(sketchPath + File.separator + "application.linux-armv6hf", dest, sketchName);
+          removeAutostarts();
+          if (autostart) {
+            addAutostart(dest, sketchName);
+          }
+        } catch (Exception e) {
+          editor.statusError("Cannot upload " + sketchName);
+          System.err.println(e);
+          disconnect();
+          return;
+        }
 
-    disconnect();
+        editor.statusNotice("Running " + sketchName + " on your Raspberry Pi");
+        try {
+          int retVal = runRemoteSketch(dest, sketchName);
+          if (retVal == Integer.MAX_VALUE) {
+            // sketch is still running
+          } else if (retVal == 0) {
+            // clean exit
+            editor.statusNotice("Sketch " + sketchName + " ended");
+          } else {
+            // error?
+            editor.statusError("Sketch + " + sketchName + " ended with exit code " + retVal);
+          }
+        } catch (Exception e) {
+          editor.statusError("Error running " + sketchName);
+          System.err.println(e);
+        }
+
+        disconnect();
+
+      }
+    }, "Upload to Pi");
+
+    t.start();
   }
 
 
