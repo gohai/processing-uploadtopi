@@ -31,7 +31,9 @@ import processing.app.Preferences;
 import processing.app.Sketch;
 import processing.app.tools.Tool;
 import processing.app.ui.Editor;
+import processing.app.ui.EditorConsole;
 import java.io.File;
+import java.io.InputStream;
 import java.io.IOException;
 import java.lang.reflect.*;
 import java.net.ConnectException;
@@ -39,6 +41,7 @@ import java.net.UnknownHostException;
 import java.util.concurrent.TimeUnit;
 import net.schmizz.sshj.common.DisconnectReason;
 import net.schmizz.sshj.common.IOUtils;
+import net.schmizz.sshj.common.StreamCopier;
 import net.schmizz.sshj.connection.channel.direct.Session;
 import net.schmizz.sshj.connection.channel.direct.Session.Command;
 import net.schmizz.sshj.connection.ConnectionException;
@@ -72,7 +75,6 @@ public class UploadToPiTool implements Tool {
   }
 
 
-  // XXX: https://github.com/hierynomus/sshj/blob/master/examples/src/main/java/net/schmizz/sshj/examples/RudimentaryPTY.java
   // XXX: https://github.com/hierynomus/sshj/blob/master/examples/src/main/java/net/schmizz/sshj/examples/KeepAlive.java
   // XXX: implement method to retrieve Pi's serial number
   // XXX: implement method to retrieve Pi's network IPs & MAC addresses
@@ -100,7 +102,7 @@ public class UploadToPiTool implements Tool {
       // XXX: disconnect?
     }
 
-    // XXX: clear console
+    editor.getConsole().clear();
 
     // this doesn't trigger the "Save as" dialog for unnamed sketches, but instead saves
     // them in the temporary location that is also used for compiling
@@ -119,7 +121,6 @@ public class UploadToPiTool implements Tool {
       return;
     }
 
-    // XXX: output while sketch is running
     // XXX: handle stop button
 
     t = new Thread(new Runnable() {
@@ -135,7 +136,7 @@ public class UploadToPiTool implements Tool {
           } else if (e instanceof UserAuthException) {
             System.err.println("Wrong username or password");
           } else if (e instanceof ConnectException && e.getMessage().equals("Connection refused")) {
-            System.err.println("Unable to connect. No SSH server running?");
+            System.err.println("No SSH server running?");
           } else {
             System.err.println(e);
           }
@@ -158,7 +159,7 @@ public class UploadToPiTool implements Tool {
           return;
         }
 
-        editor.statusNotice("Running " + sketchName + " on your Raspberry Pi");
+        editor.statusNotice("Running " + sketchName + " on the Raspberry Pi");
         try {
           int retVal = runRemoteSketch(dest, sketchName);
           if (retVal == Integer.MAX_VALUE) {
@@ -304,22 +305,23 @@ public class UploadToPiTool implements Tool {
     Session session = ssh.startSession();
     // --uploadtopi-managed is a dummy argument we use in removeSketch() to indentify ours
     Command cmd = session.exec("DISPLAY=:0 " + dest + "/" + sketchName + "/" + sketchName + " --uploadtopi-managed");
-    try {
-      cmd.join(10, TimeUnit.SECONDS);
-    } catch (ConnectionException e) {
-      if (e.getMessage().equals("Timeout expired")) {
-        // sketch is still running, which is expected for now
-        return Integer.MAX_VALUE;
-      } else {
-        throw e;
-      }
-    }
-    // print output to console
-    // XXX: ordering is wrong, needs to be done in real-time
-    System.out.println(IOUtils.readFully(cmd.getInputStream()).toString());
-    System.err.println(IOUtils.readFully(cmd.getErrorStream()).toString());
+
+    // redirect output to stdout and stderr
+    new StreamCopier(cmd.getInputStream(), System.out)
+                    .bufSize(cmd.getLocalMaxPacketSize())
+                    .spawn("stdout");
+
+    new StreamCopier(cmd.getErrorStream(), System.err)
+                    .bufSize(cmd.getLocalMaxPacketSize())
+                    .spawn("stderr");
+
+    // wait for thread to end
+    do {
+      // XXX: or signal
+    } while (cmd.isOpen());
+
     session.close();
-    // I frankly don't know how the sketch can still be running at this point, but it is :)
+
     return cmd.getExitStatus();
   }
 
