@@ -1,7 +1,8 @@
 /**
- * you can put a one sentence description of your tool here.
+ * Tool to upload and run sketches on Raspberry Pi devices.
  *
- * ##copyright##
+ * Copyright (c) The Processing Foundation 2016
+ * Developed by Gottfried Haider
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,9 +19,7 @@
  * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
  * Boston, MA  02111-1307  USA
  *
- * @author   ##author##
- * @modified ##date##
- * @version  ##tool.prettyVersion##
+ * @author   Gottfried Haider
  */
 
 package gohai.uploadtopi;
