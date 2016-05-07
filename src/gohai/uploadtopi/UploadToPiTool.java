@@ -44,6 +44,8 @@ import net.schmizz.sshj.common.StreamCopier;
 import net.schmizz.sshj.connection.channel.direct.Session;
 import net.schmizz.sshj.connection.channel.direct.Session.Command;
 import net.schmizz.sshj.connection.ConnectionException;
+import net.schmizz.sshj.DefaultConfig;
+import net.schmizz.keepalive.KeepAliveProvider;
 import net.schmizz.sshj.sftp.SFTPClient;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.transport.TransportException;
@@ -70,11 +72,11 @@ public class UploadToPiTool implements Tool {
   public void init(Base base) {
     this.base = base;
     loadPreferences();
+    // saving the preferences adds them to the txt file for the user to edit
     savePreferences();
   }
 
 
-  // XXX: https://github.com/hierynomus/sshj/blob/master/examples/src/main/java/net/schmizz/sshj/examples/KeepAlive.java
   // XXX: implement method to retrieve Pi's serial number
   // XXX: implement method to retrieve Pi's network IPs & MAC addresses
   // XXX: implement method to maximize root partition
@@ -198,10 +200,13 @@ public class UploadToPiTool implements Tool {
 
 
   public static SSHClient connect(String host, String username, String password) throws IOException, TransportException, UserAuthException {
-    SSHClient ssh = new SSHClient();
+    DefaultConfig defaultConfig = new DefaultConfig();
+    defaultConfig.setKeepAliveProvider(KeepAliveProvider.KEEP_ALIVE);
+    SSHClient ssh = new SSHClient(defaultConfig);
     ssh.loadKnownHosts();
-    // XXX: needs JZlib
+    // we could enable compression here with
     //ssh.useCompression();
+    // but the Pi is likely in the local network anyway (would need JZlib)
 
     try {
       ssh.connect(host);
@@ -221,6 +226,8 @@ public class UploadToPiTool implements Tool {
       }
     }
 
+    // send keep-alife nop every minute
+    ssh.getConnection().getKeepAlive().setKeepAliveInterval(60);
     ssh.authPassword(username, password);
     return ssh;
   }
