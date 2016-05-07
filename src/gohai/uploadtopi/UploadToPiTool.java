@@ -195,7 +195,7 @@ public class UploadToPiTool implements Tool {
   public void addAutostart(String dest, String sketchName) throws IOException {
     Session session = ssh.startSession();
     // XXX: sync since users might be inclined to power-cyle the Pi the hard way?
-    Command cmd = session.exec("echo \"@" + dest + "/" + sketchName + "/" + sketchName + " --uploadtopi-managed\" >> .config/lxsession/LXDE-pi/autostart");
+    Command cmd = session.exec("echo \"" + dest + "/" + sketchName + "/" + sketchName + " --uploadtopi-managed\" >> .config/lxsession/LXDE-pi/autostart");
     cmd.join(3, TimeUnit.SECONDS);
     if (cmd.getExitStatus() != 0) {
       // not critical
