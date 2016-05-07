@@ -53,7 +53,7 @@
 	<property name="project.dist" location="distribution"/>
 	<property name="project.dist.version" location="distribution/${project.name}-${tool.version}"/>
 	<property name="install.source" location="resources/README.md"/>
-	<property name="install.destination" location="${project.dist.version}/README.md"/>
+	<property name="install.destination" location="README.md"/>
 	<property name="toolprops.source" location="resources/tool.properties"/>
 	
 	<taskdef resource="net/sf/antcontrib/antcontrib.properties">
@@ -295,6 +295,8 @@ ${line}
 		<copy file="${install.source}" tofile="${install.destination}" />
 		        
 		<antcall target="parse.file"><param name="file" value="${install.destination}"/></antcall>
+
+		<copy file="${install.destination}" tofile="${project.dist.version}/tmp/${project.name}/README.md" />
 	</target>
 	
 	
