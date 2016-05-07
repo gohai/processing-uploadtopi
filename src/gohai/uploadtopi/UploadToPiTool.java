@@ -52,10 +52,16 @@ import net.schmizz.sshj.transport.TransportException;
 import net.schmizz.sshj.userauth.UserAuthException;
 
 
+// XXX: there doesn't seem to be a way to handle the use pressing the stop button
+// XXX: implement method to retrieve Pi's serial number
+// XXX: implement method to retrieve Pi's network IPs & MAC addresses
+// XXX: implement method to maximize root partition
+
+
 public class UploadToPiTool implements Tool {
   Base base;
   SSHClient ssh;
-  static Thread t;
+  Thread t;
 
   String hostname;
   String username;
@@ -77,11 +83,6 @@ public class UploadToPiTool implements Tool {
   }
 
 
-  // XXX: implement method to retrieve Pi's serial number
-  // XXX: implement method to retrieve Pi's network IPs & MAC addresses
-  // XXX: implement method to maximize root partition
-
-
   public void run() {
     final Editor editor = base.getActiveEditor();
     final String sketchName = editor.getSketch().getName();
@@ -93,14 +94,17 @@ public class UploadToPiTool implements Tool {
 
     // already running?
     if (t != null) {
+      // terminate thread
       t.interrupt();
       try {
+        // wait for it to finish
         t.join();
       } catch (InterruptedException e) {
-        System.err.println("Error joining thread in releaseInterrupt: " + e.getMessage());
+        System.err.println("Error joining thread: " + e.getMessage());
       }
       t = null;
-      // XXX: disconnect?
+      // the thread should already have called this, but in case it didn't
+      disconnect();
     }
 
     editor.getConsole().clear();
@@ -122,8 +126,6 @@ public class UploadToPiTool implements Tool {
       return;
     }
 
-    // XXX: there doesn't seem to be a way to handle the use pressing the stop button
-
     t = new Thread(new Runnable() {
       public void run() {
 
@@ -139,6 +141,8 @@ public class UploadToPiTool implements Tool {
           } else if (e instanceof ConnectException && e.getMessage().equals("Connection refused")) {
             System.err.println("No SSH server running?");
           } else {
+            // DEBUG
+            e.printStackTrace();
             System.err.println(e);
           }
           return;
@@ -155,6 +159,8 @@ public class UploadToPiTool implements Tool {
           }
         } catch (Exception e) {
           editor.statusError("Cannot upload " + sketchName);
+          // DEBUG
+          e.printStackTrace();
           System.err.println(e);
           disconnect();
           return;
@@ -163,9 +169,7 @@ public class UploadToPiTool implements Tool {
         editor.statusNotice("Running " + sketchName + " on the Raspberry Pi");
         try {
           int retVal = runRemoteSketch(dest, sketchName);
-          if (retVal == Integer.MAX_VALUE) {
-            // sketch is still running
-          } else if (retVal == 0) {
+          if (retVal == 0) {
             // clean exit
             editor.statusNotice("Sketch " + sketchName + " ended");
           } else {
@@ -174,6 +178,8 @@ public class UploadToPiTool implements Tool {
           }
         } catch (Exception e) {
           editor.statusError("Error running " + sketchName);
+          // DEBUG
+          e.printStackTrace();
           System.err.println(e);
         }
 
@@ -321,14 +327,20 @@ public class UploadToPiTool implements Tool {
                     .bufSize(cmd.getLocalMaxPacketSize())
                     .spawn("stderr");
 
-    // wait for thread to end
     do {
-      // XXX: or signal
-    } while (cmd.isOpen());
+      // wait for sketch execution to end
+      Thread.yield();
+    } while (cmd.isOpen() && !t.isInterrupted());
 
-    session.close();
-
-    return cmd.getExitStatus();
+    try {
+      // when the current thread is interrupted the following line throws a
+      // ConnectionException, likely due to the InterruptedException pending
+      cmd.close();
+      session.close();
+      return cmd.getExitStatus();
+    } catch (Exception e) {
+      return 0;
+    }
   }
 
 
