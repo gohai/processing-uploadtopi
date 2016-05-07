@@ -4,7 +4,7 @@
 
 This tool adds an _Upload to Pi_ menu item under _Tools_. Invoking it will compile the current sketch, upload it to a connected Raspberry Pi, and execute it there. Any output of your sketch, such as from `println`, is displayed on your local console.
 
-By default, a connection with _raspberrypi.local_ is attempted, using the default username (_raspberry_) and password (_pi_). These settings can be changed by modifying the values in Processing's preferences.txt file. See section _Configuration_ for more details.
+By default, a connection with _raspberrypi.local_ is attempted, using the default username (_raspberry_) and password (_pi_). These settings can be changed by modifying the values in Processing's `preferences.txt` file. See section _Configuration_ for more details.
 
 Sketches are uploaded to the default user's home directory (`/home/pi`). The most recently uploaded sketch is also automatically started whenever the Raspberry Pi boots up. This behavior can be changed, if needed.
 
