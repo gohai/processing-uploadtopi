@@ -183,7 +183,7 @@ public class UploadToPiTool implements Tool {
             editor.statusNotice("Sketch " + sketchName + " ended");
           } else {
             // error?
-            editor.statusError("Sketch + " + sketchName + " ended with exit code " + retVal);
+            editor.statusError("Sketch " + sketchName + " ended with exit code " + retVal);
           }
         } catch (Exception e) {
           editor.statusError("Error running " + sketchName);
