@@ -115,6 +115,9 @@ public class UploadToPiTool implements Tool {
       editor.getSketch().save();
     } catch (Exception e) {
       editor.statusError("Cannot save sketch");
+      // DEBUG
+      e.printStackTrace();
+      System.err.println(e);
       return;
     }
 
@@ -122,7 +125,13 @@ public class UploadToPiTool implements Tool {
       exportSketch();
     } catch (Exception e) {
       editor.statusError("Cannot export sketch");
-      System.err.println(e);
+      if (e instanceof InvocationTargetException) {
+        System.err.println("Most likely caused by a syntax error. Press the Run button to get more information on where the problem lies.");
+      } else {
+        // DEBUG
+        e.printStackTrace();
+        System.err.println(e);
+      }
       return;
     }
 
