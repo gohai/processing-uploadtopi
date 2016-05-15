@@ -68,6 +68,7 @@ public class UploadToPiTool implements Tool {
   String password;
   boolean persistent;
   boolean autostart;
+  boolean logging;
 
 
   public String getMenuTitle() {
@@ -175,6 +176,8 @@ public class UploadToPiTool implements Tool {
           return;
         }
 
+        // XXX: sync since users might be inclined to power-cyle the Pi the hard way?
+
         editor.statusNotice("Running " + sketchName + " on the Raspberry Pi");
         try {
           int retVal = runRemoteSketch(dest, sketchName);
@@ -203,9 +206,21 @@ public class UploadToPiTool implements Tool {
 
   public void addAutostart(String dest, String sketchName) throws IOException {
     Session session = ssh.startSession();
-    // XXX: sync since users might be inclined to power-cyle the Pi the hard way?
-    Command cmd = session.exec("echo \"" + dest + "/" + sketchName + "/" + sketchName + " --uploadtopi-managed\" >> .config/lxsession/LXDE-pi/autostart");
-    cmd.join(3, TimeUnit.SECONDS);
+    String cmdString = dest + "/" + sketchName + "/" + sketchName + " --uploadtopi-managed";
+
+    Command cmd;
+    if (logging) {
+      // LXDE autostart doesn't support spaces in its arguments, so we have to add an aux shell script
+      cmd = session.exec("echo '" + cmdString + " >>" + dest + "/" + sketchName + "/" + sketchName + ".log 2>&1' > .config/lxsession/LXDE-pi/processing.sh && chmod a+x .config/lxsession/LXDE-pi/processing.sh");
+      cmd.join(3, TimeUnit.SECONDS);
+      session.close();
+      session = ssh.startSession();
+      cmd = session.exec("echo '.config/lxsession/LXDE-pi/processing.sh --uploadtopi-managed' >> .config/lxsession/LXDE-pi/autostart");
+      cmd.join(3, TimeUnit.SECONDS);
+    } else {
+      cmd = session.exec("echo '" + cmdString + " >> .config/lxsession/LXDE-pi/autostart");
+    }
+
     if (cmd.getExitStatus() != 0) {
       // not critical
       System.err.println("Error modifying .config/lxsession/LXDE-pi/autostart");
@@ -294,6 +309,12 @@ public class UploadToPiTool implements Tool {
     } else {
       autostart = Boolean.parseBoolean(tmp);
     }
+    tmp = Preferences.get("gohai.uploadtopi.logging");
+    if (tmp == null) {
+      logging = true;
+    } else {
+      logging = Boolean.parseBoolean(tmp);
+    }
   }
 
 
@@ -325,7 +346,8 @@ public class UploadToPiTool implements Tool {
   public int runRemoteSketch(String dest, String sketchName) throws IOException {
     Session session = ssh.startSession();
     // --uploadtopi-managed is a dummy argument we use in removeSketch() to indentify ours
-    Command cmd = session.exec("DISPLAY=:0 " + dest + "/" + sketchName + "/" + sketchName + " --uploadtopi-managed");
+    String cmdString = "DISPLAY=:0 " + dest + "/" + sketchName + "/" + sketchName + " --uploadtopi-managed";
+    Command cmd = session.exec(cmdString);
 
     // redirect output to stdout and stderr
     new StreamCopier(cmd.getInputStream(), System.out)
@@ -359,6 +381,7 @@ public class UploadToPiTool implements Tool {
     Preferences.set("gohai.uploadtopi.password", password);
     Preferences.setBoolean("gohai.uploadtopi.persistent", persistent);
     Preferences.setBoolean("gohai.uploadtopi.autostart", autostart);
+    Preferences.setBoolean("gohai.uploadtopi.logging", logging);
   }
 
 

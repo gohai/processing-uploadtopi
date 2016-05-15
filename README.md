@@ -57,6 +57,8 @@ The following settings can be modified by editing Processing's `preferences.txt`
 
 `gohai.uploadtopi.autostart` - whether or not to automatically start the sketch after bootup, defaults to `true`
 
+`gohai.uploadtopi.logging` - whether to write the output of the sketch (including any error messages) to a .log file in the sketch folder on the Raspberry Pi when automatically started after bootup, defaults to `true`
+
 ### Troubleshooting
 
 If you're having trouble, please file issues [here](https://github.com/gohai/processing-uploadtopi/issues/new).
