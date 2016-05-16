@@ -150,6 +150,8 @@ public class UploadToPiTool implements Tool {
             System.err.println("Wrong username or password");
           } else if (e instanceof ConnectException && e.getMessage().equals("Connection refused")) {
             System.err.println("No SSH server running?");
+          } else if (e instanceof ConnectionException && e.getMessage().equals("Operation timed out")) {
+            System.err.println("A timeout occurred");
           } else {
             // DEBUG
             e.printStackTrace();
@@ -234,6 +236,13 @@ public class UploadToPiTool implements Tool {
     defaultConfig.setKeepAliveProvider(KeepAliveProvider.KEEP_ALIVE);
     SSHClient ssh = new SSHClient(defaultConfig);
     ssh.loadKnownHosts();
+
+    // set a timeout to try to work around this bizzare timeout error on some OS X machines:
+    // java.net.ConnectException: Operation timed out
+    //      at java.net.PlainSocketImpl.socketConnect(Native Method)
+    //      at java.net.AbstractPlainSocketImpl.doConnect(AbstractPlainSocketImpl.java:350)
+    ssh.setConnectTimeout(5000);
+
     // we could enable compression here with
     //ssh.useCompression();
     // but the Pi is likely in the local network anyway (would need JZlib)
@@ -249,6 +258,7 @@ public class UploadToPiTool implements Tool {
         ssh = new SSHClient();
         // this doesn't update the known_hosts file
         ssh.addHostKeyVerifier(fingerprint);
+        ssh.setConnectTimeout(5000);
         //ssh.useCompression();
         ssh.connect(host);
       } else {
