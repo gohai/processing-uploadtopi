@@ -36,6 +36,7 @@ import java.io.InputStream;
 import java.io.IOException;
 import java.lang.reflect.*;
 import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.concurrent.TimeUnit;
 import net.schmizz.sshj.common.DisconnectReason;
@@ -150,6 +151,8 @@ public class UploadToPiTool implements Tool {
             System.err.println("Wrong username or password");
           } else if (e instanceof ConnectException && e.getMessage().equals("Connection refused")) {
             System.err.println("No SSH server running?");
+          } else if (e instanceof SocketTimeoutException) {
+            System.err.println("A timeout occurred");
           } else if (e instanceof ConnectionException && e.getMessage().equals("Operation timed out")) {
             System.err.println("A timeout occurred");
           } else {
