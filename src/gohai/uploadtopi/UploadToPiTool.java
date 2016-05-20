@@ -56,7 +56,6 @@ import net.schmizz.sshj.userauth.UserAuthException;
 // XXX: there doesn't seem to be a way to handle the use pressing the stop button
 // XXX: implement method to retrieve Pi's serial number
 // XXX: implement method to retrieve Pi's network IPs & MAC addresses
-// XXX: implement method to maximize root partition
 
 
 public class UploadToPiTool implements Tool {
