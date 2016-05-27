@@ -180,7 +180,17 @@ public class UploadToPiTool implements Tool {
           return;
         }
 
-        // XXX: sync since users might be inclined to power-cyle the Pi the hard way?
+        try {
+          editor.statusNotice("Syncing disks ...");
+          syncDisks();
+        } catch (Exception e) {
+          editor.statusError("Cannot sync disks");
+          // DEBUG
+          e.printStackTrace();
+          System.err.println(e);
+          disconnect();
+          return;
+        }
 
         editor.statusNotice("Running " + sketchName + " on the Raspberry Pi");
         try {
@@ -403,6 +413,18 @@ public class UploadToPiTool implements Tool {
     Command cmd = session.exec("pgrep -f \"uploadtopi-managed\" | xargs kill -9");
     cmd.join(3, TimeUnit.SECONDS);
     // cmd.getExitStatus() throws a NPE here, not sure why - ignore for now
+    session.close();
+  }
+
+
+  public void syncDisks() throws IOException {
+    Session session = ssh.startSession();
+    Command cmd = session.exec("sync");
+    cmd.join(3, TimeUnit.SECONDS);
+    if (cmd.getExitStatus() != 0) {
+      // not critical
+      System.err.println("Error syncing disks. Make sure you power off the Pi safely to prevent file corruption.");
+    }
     session.close();
   }
 
