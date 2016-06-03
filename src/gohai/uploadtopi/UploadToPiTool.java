@@ -423,7 +423,7 @@ public class UploadToPiTool implements Tool {
   public void syncDisks() throws IOException {
     Session session = ssh.startSession();
     Command cmd = session.exec("sync");
-    cmd.join(3, TimeUnit.SECONDS);
+    cmd.join(30, TimeUnit.SECONDS);
     if (cmd.getExitStatus() != 0) {
       // not critical
       System.err.println("Error syncing disks. Make sure you power off the Pi safely to prevent file corruption.");
