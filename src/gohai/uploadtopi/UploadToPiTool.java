@@ -247,7 +247,10 @@ public class UploadToPiTool implements Tool {
     DefaultConfig defaultConfig = new DefaultConfig();
     defaultConfig.setKeepAliveProvider(KeepAliveProvider.KEEP_ALIVE);
     SSHClient ssh = new SSHClient(defaultConfig);
-    ssh.loadKnownHosts();
+    // seems to throw an IOException on Windows
+    try {
+      ssh.loadKnownHosts();
+    } catch (Exception e) {}
 
     // set a timeout to try to work around this bizzare timeout error on some OS X machines:
     // java.net.ConnectException: Operation timed out
