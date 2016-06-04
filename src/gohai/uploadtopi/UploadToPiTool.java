@@ -304,8 +304,15 @@ public class UploadToPiTool implements Tool {
     Mode mode = editor.getMode();
     Sketch sketch = editor.getSketch();
 
-    Method javaModeMethod = mode.getClass().getMethod("handleExportApplication", sketch.getClass());
-    javaModeMethod.invoke(mode, sketch);
+    String oldSetting = Preferences.get("export.application.platform_linux");
+    Preferences.set("export.application.platform_linux", "true");
+
+    try {
+      Method javaModeMethod = mode.getClass().getMethod("handleExportApplication", sketch.getClass());
+      javaModeMethod.invoke(mode, sketch);
+    } finally {
+      Preferences.set("export.application.platform_linux", oldSetting);
+    }
   }
 
 
