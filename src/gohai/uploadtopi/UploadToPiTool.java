@@ -310,6 +310,9 @@ public class UploadToPiTool implements Tool {
     try {
       Method javaModeMethod = mode.getClass().getMethod("handleExportApplication", sketch.getClass());
       javaModeMethod.invoke(mode, sketch);
+    } catch (Exception e) {
+      System.err.println("The UploadToPi tool can only handle sketches using the Java mode at this time.");
+      throw new RuntimeException("Unsupported mode");
     } finally {
       Preferences.set("export.application.platform_linux", oldSetting);
     }
